@@ -1,6 +1,5 @@
 import os
 import tkinter as tk
-from tkinter import ttk
 from PIL import Image, ImageTk, ImageSequence
 import winsound
 
@@ -11,9 +10,15 @@ from noir.mechanics import difficulty
 # ----------------------
 
 BASE_DIR = os.path.dirname(__file__)
+
 SOUND_PATH = os.path.join(BASE_DIR, "assets", "dice.wav")
 IMG_PATH = os.path.join(BASE_DIR, "assets", "d10.png")
 GIF_PATH = os.path.join(BASE_DIR, "assets", "spin.gif")
+
+FEDORA_PATH = os.path.join(BASE_DIR, "assets", "fedora.png")
+GODFATHER_PATH = os.path.join(BASE_DIR, "assets", "godfather.png")
+WRONG_PATH = os.path.join(BASE_DIR, "assets", "wrong.png")
+NOIRGE_PATH = os.path.join(BASE_DIR, "assets", "noirge.png")
 
 # ----------------------
 # LJUD
@@ -30,33 +35,49 @@ def play_dice_sound():
 # ----------------------
 
 root = tk.Tk()
-root.configure(bg="#1e1e1e")
+root.tk.call('tk', 'scaling', root.winfo_fpixels('1i') / 72)
+root.resizable(True, True)
 root.title("Noir Dice")
-root.geometry("400x350")
-root.resizable(False, False)
+root.geometry("700x650")
+root.configure(bg="#e6e6e6")
 
 # ----------------------
-# BILDER (MÅSTE EFTER ROOT)
+# BILDER
 # ----------------------
 
-# statisk d10
-img = Image.open(IMG_PATH)
-img = img.resize((60, 60), Image.LANCZOS)
+def load_icon(path, size=(60, 60)):
+    img = Image.open(path).convert("RGBA")
+    img = img.resize(size, Image.LANCZOS)
+    return ImageTk.PhotoImage(img)
+
+# tärning
+img = Image.open(IMG_PATH).convert("RGBA")
+img = img.resize((100, 100), Image.LANCZOS)
 dice_img = ImageTk.PhotoImage(img)
 
-# gif frames (säker version)
+# gif
 gif = Image.open(GIF_PATH)
 gif_frames = [
-    ImageTk.PhotoImage(frame.copy().convert("RGBA").resize((60, 60), Image.LANCZOS))
+    ImageTk.PhotoImage(frame.copy().convert("RGBA").resize((100, 100), Image.LANCZOS))
     for frame in ImageSequence.Iterator(gif)
 ]
 
-# ⚠️ Viktigt: behåll referenser
+# ikoner
+fedora_img = load_icon(FEDORA_PATH)
+godfather_img = load_icon(GODFATHER_PATH)
+wrong_img = load_icon(WRONG_PATH)
+noirge_img = load_icon(NOIRGE_PATH)
+
+# behåll referenser
 root.dice_img = dice_img
 root.gif_frames = gif_frames
+root.fedora_img = fedora_img
+root.godfather_img = godfather_img
+root.wrong_img = wrong_img
+root.noirge_img = noirge_img
 
 # ----------------------
-# ANIMATION (med stopp)
+# ANIMATION
 # ----------------------
 
 animation_running = False
@@ -65,65 +86,69 @@ def animate_gif(label, frames, delay=50):
     def update(ind):
         if not animation_running:
             return
-
-        frame = frames[ind]
-        label.config(image=frame)
-
-        ind = (ind + 1) % len(frames)
-        label.after(delay, update, ind)
-
+        label.config(image=frames[ind])
+        label.after(delay, update, (ind + 1) % len(frames))
     update(0)
 
 # ----------------------
-# VISA TÄRNINGAR
+# LOGIK
 # ----------------------
+
+def is_exceptional(r):
+    base = r["grundslag"]
+    return len(base) >= 2 and base[0] == base[1]
 
 def show_dice_images(r):
     for widget in dice_frame.winfo_children():
         widget.destroy()
 
-    # grundslag
     for d in r["grundslag"]:
-        frame = tk.Frame(dice_frame)
-        frame.pack(side="left", padx=5)
+        frame = tk.Frame(dice_frame, bg="#e6e6e6")
+        frame.pack(side="left", padx=20)
 
-        tk.Label(frame, image=dice_img).pack()
-        tk.Label(frame, text=str(d), font=("Segoe UI", 10, "bold")).pack()
+        tk.Label(frame, image=dice_img, bg="#e6e6e6").pack()
+        tk.Label(frame, text=str(d), bg="#e6e6e6", font=("Segoe UI", 10, "bold")).pack()
 
-    # extra
     if r["extra"]:
-        tk.Label(dice_frame, text="+", font=("Segoe UI", 12)).pack(side="left")
+        tk.Label(dice_frame, text="+", bg="#e6e6e6").pack(side="left")
 
         for d in r["extra"]:
-            frame = tk.Frame(dice_frame)
-            frame.pack(side="left", padx=5)
+            frame = tk.Frame(dice_frame, bg="#e6e6e6")
+            frame.pack(side="left", padx=20)
 
-            tk.Label(frame, image=dice_img).pack()
-            tk.Label(frame, text=str(d), font=("Segoe UI", 10, "bold")).pack()
-
-# ----------------------
-# RESULTAT
-# ----------------------
+            tk.Label(frame, image=dice_img, bg="#e6e6e6").pack()
+            tk.Label(frame, text=str(d), bg="#e6e6e6", font=("Segoe UI", 10, "bold")).pack()
 
 def show_result(value):
     global animation_running
 
     r, total, success = difficulty(value)
 
-    # stoppa animation
     animation_running = False
     gif_label.config(image="")
 
     show_dice_images(r)
 
-    text = f"Summa: {total}\n\n"
-    text += "✅ Lyckat!" if success else "❌ Misslyckat!"
+    exceptional = is_exceptional(r)
 
-    result_label.config(text=text)
+    if success and exceptional:
+        icon = godfather_img
+        text = "EXCEPTIONELLT LYCKAT!"
+    elif success:
+        icon = fedora_img
+        text = "Lyckat!"
+    elif not success and exceptional:
+        icon = noirge_img
+        text = "EXCEPTIONELLT MISSLYCKAT!"
+    else:
+        icon = wrong_img
+        text = "Misslyckat!"
 
-# ----------------------
-# STARTA SLAG
-# ----------------------
+    result_label.config(
+        text=f"Summa: {total}\n\n{text}",
+        image=icon,
+        compound="top"
+    )
 
 def run_difficulty():
     global animation_running
@@ -134,81 +159,77 @@ def run_difficulty():
         result_label.config(text="Fel värde")
         return
 
-    result_label.config(text="🎲 Rullar...")
-    root.update()
-
+    result_label.config(text="🎲 Rullar...", image="")
     play_dice_sound()
 
-    # ▶ starta animation
     animation_running = True
     animate_gif(gif_label, gif_frames)
 
-    # ⏱ visa resultat efter delay
     root.after(800, lambda: show_result(value))
-
-# ----------------------
-# STIL
-# ----------------------
-
-style = ttk.Style()
-style.theme_use("default")
-
-style.configure(
-    "TLabel",
-    background="#1e1e1e",
-    foreground="#ffffff",
-    font=("Segoe UI", 10)
-)
-
-style.configure(
-    "TButton",
-    padding=6,
-    font=("Segoe UI", 10)
-)
 
 # ----------------------
 # GUI LAYOUT
 # ----------------------
 
-root.geometry("500x450")
-
-main_frame = tk.Frame(root, bg="#1e1e1e")
+main_frame = tk.Frame(root, bg="#e6e6e6")
 main_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-# Titel
-title = ttk.Label(main_frame, text="🎲 NOIR DICE", font=("Segoe UI", 18, "bold"))
-title.pack(pady=(0, 20))
+# titel
+title_frame = tk.Frame(main_frame, bg="#e6e6e6")
+title_frame.pack(pady=(0, 20))
 
-# Input-rad
-input_frame = ttk.Frame(main_frame)
+tk.Label(title_frame, image=fedora_img, bg="#e6e6e6").pack(side="left", padx=10)
+
+tk.Label(
+    title_frame,
+    text="NOIR DICE",
+    font=("Segoe UI", 26, "bold"),
+    bg="#e6e6e6",
+    fg="black"
+).pack(side="left")
+
+# input
+input_frame = tk.Frame(main_frame, bg="#e6e6e6")
 input_frame.pack(pady=10)
 
-ttk.Label(input_frame, text="Värde:", font=("Segoe UI", 11)).pack(side="left", padx=5)
+tk.Label(input_frame, text="Värde:", bg="#e6e6e6", font=("Segoe UI", 14)).pack(side="left", padx=5)
 
-entry = ttk.Entry(input_frame, width=10, font=("Segoe UI", 11))
+entry = tk.Entry(input_frame, width=10, font=("Segoe UI", 14))
 entry.pack(side="left", padx=5)
 
-# Knapp
-roll_button = ttk.Button(main_frame, text="Slå", command=run_difficulty)
+# knapp
+roll_button = tk.Button(
+    main_frame,
+    text="Slå",
+    command=run_difficulty,
+    bg="#1e1e1e",
+    fg="#bb86fc",
+    activebackground="#333333",
+    relief="flat",
+    padx=25,
+    pady=12,
+    font=("Segoe UI", 14, "bold"),
+    cursor="hand2"
+)
 roll_button.pack(pady=15)
 
-# GIF animation
-gif_label = tk.Label(main_frame)
-gif_label.pack(pady=5)
+# animation
+gif_label = tk.Label(main_frame, bg="#e6e6e6")
+gif_label.pack()
 
-# Dice display
-dice_frame = tk.Frame(main_frame, bg="#1e1e1e")
+# dice
+dice_frame = tk.Frame(main_frame, bg="#e6e6e6")
 dice_frame.pack(pady=15)
 
-# Resultat
+# resultat
 result_label = tk.Label(
     main_frame,
     text="Resultat visas här",
-    bg="#2a2a2a",
-    fg="white",
-    font=("Segoe UI", 12),
-    padx=15,
-    pady=15,
+    bg="#ffffff",
+    fg="black",
+    font=("Segoe UI", 16),
+    padx=30,
+    pady=20,
     justify="center"
 )
 result_label.pack(pady=10)
