@@ -2,9 +2,14 @@ import os
 import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk, ImageSequence
-import winsound
+import pygame
 
 from noir.mechanics import difficulty
+
+# --------------------
+# INIT PYGAME (LJUD)
+# --------------------
+pygame.mixer.init()
 
 # --------------------
 # PATHS
@@ -24,13 +29,15 @@ WRONG_PATH = os.path.join(BASE_DIR, "assets", "wrong.png")
 NOIRGE_PATH = os.path.join(BASE_DIR, "assets", "noirge.png")
 
 # --------------------
-# LJUD
+# LADDA LJUD
 # --------------------
-def play_sound(path):
-    try:
-        winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC)
-    except:
-        pass
+dice_sound = pygame.mixer.Sound(SOUND_PATH)
+sax_sound = pygame.mixer.Sound(SAX_PATH)
+crash_sound = pygame.mixer.Sound(CRASH_PATH)
+
+dice_sound.set_volume(0.5)
+sax_sound.set_volume(0.7)
+crash_sound.set_volume(0.7)
 
 # --------------------
 # GUI INIT
@@ -40,9 +47,7 @@ root.title("Noir Dice")
 root.geometry("600x650")
 root.resizable(True, True)
 
-# scaling (ZOOM)
 root.tk.call('tk', 'scaling', 1.4)
-
 root.configure(bg="#e6e6e6")
 
 # --------------------
@@ -51,35 +56,37 @@ root.configure(bg="#e6e6e6")
 style = ttk.Style()
 style.theme_use("default")
 
-style.configure("TButton",
-    padding=10,
-    font=("Segoe UI", 14),
-)
-
-style.configure("TLabel",
-    font=("Segoe UI", 14),
-    background="#e6e6e6"
-)
+style.configure("TButton", padding=10, font=("Segoe UI", 14))
+style.configure("TLabel", font=("Segoe UI", 14), background="#e6e6e6")
 
 # --------------------
-# BILDER (MÅSTE EFTER ROOT)
+# BILDER
 # --------------------
 def load_img(path, size):
-    img = Image.open(path).resize(size)
+    img = Image.open(path).convert("RGBA")
+    img = img.resize(size, Image.LANCZOS)
     return ImageTk.PhotoImage(img)
 
 dice_img = load_img(IMG_PATH, (100, 100))
-fedora_img = load_img(FEDORA_PATH, (40, 40))
-godfather_img = load_img(GODFATHER_PATH, (50, 50))
-wrong_img = load_img(WRONG_PATH, (50, 50))
-noirge_img = load_img(NOIRGE_PATH, (50, 50))
+fedora_img = load_img(FEDORA_PATH, (50, 50))
+godfather_img = load_img(GODFATHER_PATH, (60, 60))
+wrong_img = load_img(WRONG_PATH, (60, 60))
+noirge_img = load_img(NOIRGE_PATH, (60, 60))
 
 # GIF
 gif = Image.open(GIF_PATH)
 gif_frames = [
-    ImageTk.PhotoImage(frame.copy().resize((100, 100)))
+    ImageTk.PhotoImage(frame.copy().convert("RGBA").resize((100, 100), Image.LANCZOS))
     for frame in ImageSequence.Iterator(gif)
 ]
+
+# behåll referenser
+root.dice_img = dice_img
+root.gif_frames = gif_frames
+root.fedora_img = fedora_img
+root.godfather_img = godfather_img
+root.wrong_img = wrong_img
+root.noirge_img = noirge_img
 
 animation_running = False
 
@@ -89,7 +96,6 @@ animation_running = False
 def animate_gif(index=0):
     if not animation_running:
         return
-
     gif_label.config(image=gif_frames[index])
     root.after(50, animate_gif, (index + 1) % len(gif_frames))
 
@@ -98,9 +104,9 @@ def animate_gif(index=0):
 # --------------------
 def get_style(n):
     if n == 10:
-        return "#ffd700", ("Segoe UI", 18, "bold")  # GULD + glow
+        return "#ffd700", ("Segoe UI", 18, "bold")
     elif n == 1:
-        return "#b71c1c", ("Segoe UI", 16, "bold")  # RÖD
+        return "#b71c1c", ("Segoe UI", 16, "bold")
     return "black", ("Segoe UI", 16)
 
 # --------------------
@@ -110,7 +116,6 @@ def show_dice_images(r):
     for widget in dice_frame.winfo_children():
         widget.destroy()
 
-    # grundslag
     for d in r["grundslag"]:
         frame = tk.Frame(dice_frame, bg="#e6e6e6")
         frame.pack(side="left", padx=25)
@@ -119,15 +124,8 @@ def show_dice_images(r):
 
         color, font = get_style(d)
 
-        tk.Label(
-            frame,
-            text=str(d),
-            bg="#e6e6e6",
-            fg=color,
-            font=font
-        ).pack()
+        tk.Label(frame, text=str(d), bg="#e6e6e6", fg=color, font=font).pack()
 
-    # extra
     if r["extra"]:
         tk.Label(dice_frame, text="+", bg="#e6e6e6", font=("Segoe UI", 18)).pack(side="left")
 
@@ -139,13 +137,7 @@ def show_dice_images(r):
 
             color, font = get_style(d)
 
-            tk.Label(
-                frame,
-                text=str(d),
-                bg="#e6e6e6",
-                fg=color,
-                font=font
-            ).pack()
+            tk.Label(frame, text=str(d), bg="#e6e6e6", fg=color, font=font).pack()
 
 # --------------------
 # RESULTAT
@@ -165,11 +157,10 @@ def show_result(value):
         r["grundslag"][0] == r["grundslag"][1]
     )
 
-    # ikon + ljud
     if success and exceptional:
         icon = godfather_img
         text = "EXCEPTIONELLT LYCKAT!"
-        play_sound(SAX_PATH)
+        sax_sound.play()
 
     elif success:
         icon = fedora_img
@@ -178,7 +169,7 @@ def show_result(value):
     elif not success and exceptional:
         icon = noirge_img
         text = "EXCEPTIONELLT MISSLYCKAT!"
-        play_sound(CRASH_PATH)
+        crash_sound.play()
 
     else:
         icon = wrong_img
@@ -202,7 +193,7 @@ def run():
     animation_running = True
     animate_gif()
 
-    play_sound(SOUND_PATH)
+    dice_sound.play()
 
     root.after(500, lambda: show_result(value))
 
