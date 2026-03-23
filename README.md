@@ -1,21 +1,43 @@
-# 🎲 Noir Tärningsverktyg
+# 🎲 Noir Dice
 
-Ett enkelt Python-program med GUI för att slå tärningar enligt reglerna i rollspelet **Noir**.
+Ett visuellt tärningsverktyg i Python för det svenska rollspelet **Noir**.
+
+Programmet automatiserar tärningsslag enligt Noirs regler och visar resultatet tydligt med grafik, animationer och ljud.
+
+---
 
 ## ✨ Funktioner
 
-- 🎲 Slår T10 enligt Noirs regelsystem
-- 🔁 Maxning (10:or ger extra slag)
-- 🚫 Spärr (1:or blockerar maxning)
-- 🎞️ Animerad tärningskast (GIF)
-- 🔊 Ljudeffekt vid slag
-- 🌙 Mörkt tema (dark mode GUI)
-- 🖼️ Visuella tärningar
+* 🎲 Slår T10 enligt Noirs regelsystem
+* ➕ Hanterar maxning (10:or ger extra slag)
+* ⛔ Hanterar spärr (1:or stoppar maxning)
+* 🎞️ Animerat tärningskast (GIF)
+* 🔊 Ljudfeedback (via `pygame`)
+* 🎩 Visuella resultat (fedora, godfather, etc.)
+* 🎨 Highlight av viktiga slag (1 & 10, samt dubblar)
+* 💥 Exceptionella resultat:
 
-## 🧰 Krav
+  * Dubbel + ≥ 20 → **Exceptionellt lyckat**
+  * Dubbel + < 20 → **Exceptionellt misslyckat**
+* 🧠 Visar varför resultatet blev exceptionellt (t.ex. *"Dubbel 7"*)
 
-- Python 3.x
-- Pillow
+---
+
+## 🎯 Initiativsystem
+
+* ➕ Lägg till spelare med namn + värde
+* 🎲 Slå initiativ för alla spelare
+* 📊 Automatisk sortering (högst först)
+* ▶️ Växla turordning med “Nästa spelare”
+* 🎯 Highlight av aktuell spelare
+
+---
+
+## 📦 Krav
+
+* Python 3.10+
+* Pillow
+* pygame-ce
 
 Installera beroenden:
 
@@ -23,45 +45,67 @@ Installera beroenden:
 pip install -r requirements.txt
 ```
 
+---
+
 ## ▶️ Starta programmet
 
 ```bash
 python gui.py
 ```
 
+---
+
 ## 📁 Projektstruktur
 
 ```
 noir-dice/
 │
-├── gui.py                # GUI-applikation
-├── main.py               # CLI-version (valfri)
-├── requirements.txt      # Beroenden
+├── gui.py
+├── noir/
+│   └── mechanics.py
 ├── assets/
-│   ├── dice.wav          # Ljudeffekt
-│   ├── d10.png           # Tärningsbild
-│   └── spin.gif          # Animation
-└── noir/
-    ├── __init__.py
-    ├── dice.py           # Grundläggande tärningslogik
-    └── mechanics.py      # Spelmekanik (slag, regler)
+│   ├── d10.png
+│   ├── spin.gif
+│   ├── fedora.png
+│   ├── godfather.png
+│   ├── wrong.png
+│   ├── noirge.png
+│   ├── dice.wav
+│   ├── sax.wav
+│   └── carcrash.wav
+└── README.md
 ```
 
-## 🧠 Regler (kortfattat)
+---
 
-- Slå 2T10
-- Summera resultatet
-- Varje 10:a ger en extra tärning (maxning)
-- Varje 1:a spärrar en 10:a
-- Målet är att nå **20 eller mer** vid svårighetsslag
+## 🎨 Designfilosofi
 
-## 🚀 Planerade funktioner
+Fokus på:
 
-- ⚔️ Initiativsystem
-- 👥 Stöd för flera spelare
-- 🎨 Färgkodning (kritiska slag / misslyckanden)
-- 📱 Möjlig mobilversion
+* Enkelhet vid spelbordet
+* Tydlig visuell feedback
+* Noir-känsla (mörk, stilren, tematisk)
+
+---
+
+## 🚀 Framtida idéer
+
+* 📱 Mobilanpassning
+* 🎭 Fler visuella teman
+* 🎲 Fler Noir-mekanik (t.ex. skador, resurser)
+
+---
+
+## 🧠 Om projektet
+
+Detta är ett hobbyprojekt byggt i Python för att kombinera programmering med rollspel och kreativ UI-design.
+
+---
 
 ## 📜 Licens
 
-Detta projekt är ett hobbyprojekt och inte officiellt kopplat till Noir.
+Öppen källkod.
+
+Fri att använda och bygga vidare på.
+
+Detta projekt är ett hobbyprojekt och inte officiellt kopplat till Noir eller Helmgast.
