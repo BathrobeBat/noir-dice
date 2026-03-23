@@ -3,241 +3,352 @@ import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk, ImageSequence
 import pygame
+from collections import Counter
 
 from noir.mechanics import difficulty
 
-# --------------------
-# INIT PYGAME (LJUD)
-# --------------------
+# -----------------------
+# INIT
+# -----------------------
+
 pygame.mixer.init()
 
-# --------------------
-# PATHS
-# --------------------
 BASE_DIR = os.path.dirname(__file__)
+ASSETS = os.path.join(BASE_DIR, "assets")
 
-SOUND_PATH = os.path.join(BASE_DIR, "assets", "dice.wav")
-SAX_PATH = os.path.join(BASE_DIR, "assets", "sax.wav")
-CRASH_PATH = os.path.join(BASE_DIR, "assets", "carcrash.wav")
+SOUND_DICE = os.path.join(ASSETS, "dice.wav")
+SOUND_SUCCESS = os.path.join(ASSETS, "sax.wav")
+SOUND_FAIL = os.path.join(ASSETS, "carcrash.wav")
 
-IMG_PATH = os.path.join(BASE_DIR, "assets", "d10.png")
-GIF_PATH = os.path.join(BASE_DIR, "assets", "spin.gif")
+IMG_D10 = os.path.join(ASSETS, "d10.png")
+IMG_GIF = os.path.join(ASSETS, "spin.gif")
+IMG_FEDORA = os.path.join(ASSETS, "fedora.png")
+IMG_GODFATHER = os.path.join(ASSETS, "godfather.png")
+IMG_WRONG = os.path.join(ASSETS, "wrong.png")
+IMG_NOIRGE = os.path.join(ASSETS, "noirge.png")
 
-FEDORA_PATH = os.path.join(BASE_DIR, "assets", "fedora.png")
-GODFATHER_PATH = os.path.join(BASE_DIR, "assets", "godfather.png")
-WRONG_PATH = os.path.join(BASE_DIR, "assets", "wrong.png")
-NOIRGE_PATH = os.path.join(BASE_DIR, "assets", "noirge.png")
+# -----------------------
+# STYLE
+# -----------------------
 
-# --------------------
-# LADDA LJUD
-# --------------------
-dice_sound = pygame.mixer.Sound(SOUND_PATH)
-sax_sound = pygame.mixer.Sound(SAX_PATH)
-crash_sound = pygame.mixer.Sound(CRASH_PATH)
+BG = "#e6e6e6"
+FG = "#111"
+BTN_BG = "#111"
+BTN_FG = "#7c3aed"
+HIGHLIGHT = "#a855f7"  # lila
 
-dice_sound.set_volume(0.5)
-sax_sound.set_volume(0.7)
-crash_sound.set_volume(0.7)
+# -----------------------
+# LJUD
+# -----------------------
 
-# --------------------
-# GUI INIT
-# --------------------
+def play_sound(path):
+    try:
+        pygame.mixer.Sound(path).play()
+    except:
+        pass
+
+# -----------------------
+# ROOT
+# -----------------------
+
 root = tk.Tk()
 root.title("Noir Dice")
-root.geometry("600x650")
-root.resizable(True, True)
+root.geometry("650x700")
+root.configure(bg=BG)
 
-root.tk.call('tk', 'scaling', 1.4)
-root.configure(bg="#e6e6e6")
+root.tk.call('tk', 'scaling', 1.3)
 
-# --------------------
-# STYLE
-# --------------------
-style = ttk.Style()
-style.theme_use("default")
+# -----------------------
+# LOAD IMAGES
+# -----------------------
 
-style.configure("TButton", padding=10, font=("Segoe UI", 14))
-style.configure("TLabel", font=("Segoe UI", 14), background="#e6e6e6")
-
-# --------------------
-# BILDER
-# --------------------
 def load_img(path, size):
-    img = Image.open(path).convert("RGBA")
-    img = img.resize(size, Image.LANCZOS)
-    return ImageTk.PhotoImage(img)
+    return ImageTk.PhotoImage(Image.open(path).resize(size))
 
-dice_img = load_img(IMG_PATH, (100, 100))
-fedora_img = load_img(FEDORA_PATH, (50, 50))
-godfather_img = load_img(GODFATHER_PATH, (60, 60))
-wrong_img = load_img(WRONG_PATH, (60, 60))
-noirge_img = load_img(NOIRGE_PATH, (60, 60))
+dice_img = load_img(IMG_D10, (100, 100))
+fedora_img = load_img(IMG_FEDORA, (60, 60))
+godfather_img = load_img(IMG_GODFATHER, (70, 70))
+wrong_img = load_img(IMG_WRONG, (70, 70))
+noirge_img = load_img(IMG_NOIRGE, (70, 70))
 
-# GIF
-gif = Image.open(GIF_PATH)
+gif = Image.open(IMG_GIF)
 gif_frames = [
-    ImageTk.PhotoImage(frame.copy().convert("RGBA").resize((100, 100), Image.LANCZOS))
+    ImageTk.PhotoImage(frame.copy().resize((100, 100)))
     for frame in ImageSequence.Iterator(gif)
 ]
 
-# behåll referenser
-root.dice_img = dice_img
-root.gif_frames = gif_frames
-root.fedora_img = fedora_img
-root.godfather_img = godfather_img
-root.wrong_img = wrong_img
-root.noirge_img = noirge_img
+# -----------------------
+# HELPERS
+# -----------------------
+
+def clear_frame(frame):
+    for w in frame.winfo_children():
+        w.destroy()
+
+def get_style(value, is_highlight=False):
+    if is_highlight:
+        return HIGHLIGHT, ("Segoe UI", 20, "bold")
+    if value == 10:
+        return "#16a34a", ("Segoe UI", 18, "bold")
+    if value == 1:
+        return "#dc2626", ("Segoe UI", 18, "bold")
+    return FG, ("Segoe UI", 16)
+
+# -----------------------
+# TABS
+# -----------------------
+
+notebook = ttk.Notebook(root)
+notebook.pack(fill="both", expand=True)
+
+tab_difficulty = tk.Frame(notebook, bg=BG)
+tab_initiative = tk.Frame(notebook, bg=BG)
+
+notebook.add(tab_difficulty, text="Svårighet")
+notebook.add(tab_initiative, text="Initiativ")
+
+# =====================================================
+# 🎲 SVÅRIGHET
+# =====================================================
+
+title = tk.Label(
+    tab_difficulty,
+    text="NOIR DICE",
+    image=fedora_img,
+    compound="left",
+    font=("Segoe UI", 28, "bold"),
+    bg=BG
+)
+title.pack(pady=20)
+
+entry = tk.Entry(tab_difficulty, font=("Segoe UI", 18), justify="center")
+entry.pack(pady=10)
+
+gif_label = tk.Label(tab_difficulty, bg=BG)
+gif_label.pack()
 
 animation_running = False
 
-# --------------------
-# GIF ANIMATION
-# --------------------
-def animate_gif(index=0):
+def animate_gif(i=0):
     if not animation_running:
         return
-    gif_label.config(image=gif_frames[index])
-    root.after(50, animate_gif, (index + 1) % len(gif_frames))
+    gif_label.config(image=gif_frames[i])
+    root.after(50, animate_gif, (i+1) % len(gif_frames))
 
-# --------------------
-# TÄRNINGSSTIL
-# --------------------
-def get_style(n):
-    if n == 10:
-        return "#ffd700", ("Segoe UI", 18, "bold")
-    elif n == 1:
-        return "#b71c1c", ("Segoe UI", 16, "bold")
-    return "black", ("Segoe UI", 16)
+dice_frame = tk.Frame(tab_difficulty, bg=BG)
+dice_frame.pack(pady=20)
 
-# --------------------
-# VISA TÄRNINGAR
-# --------------------
-def show_dice_images(r):
-    for widget in dice_frame.winfo_children():
-        widget.destroy()
+result_frame = tk.Frame(tab_difficulty, bg=BG)
+result_frame.pack(pady=10)
 
-    for d in r["grundslag"]:
-        frame = tk.Frame(dice_frame, bg="#e6e6e6")
-        frame.pack(side="left", padx=25)
-
-        tk.Label(frame, image=dice_img, bg="#e6e6e6").pack()
-
-        color, font = get_style(d)
-
-        tk.Label(frame, text=str(d), bg="#e6e6e6", fg=color, font=font).pack()
-
-    if r["extra"]:
-        tk.Label(dice_frame, text="+", bg="#e6e6e6", font=("Segoe UI", 18)).pack(side="left")
-
-        for d in r["extra"]:
-            frame = tk.Frame(dice_frame, bg="#e6e6e6")
-            frame.pack(side="left", padx=25)
-
-            tk.Label(frame, image=dice_img, bg="#e6e6e6").pack()
-
-            color, font = get_style(d)
-
-            tk.Label(frame, text=str(d), bg="#e6e6e6", fg=color, font=font).pack()
-
-# --------------------
-# RESULTAT
-# --------------------
 def show_result(value):
     global animation_running
+
+    clear_frame(dice_frame)
+    clear_frame(result_frame)
 
     r, total, success = difficulty(value)
 
     animation_running = False
     gif_label.config(image="")
 
-    show_dice_images(r)
+    all_dice = r["grundslag"] + r["extra"]
 
-    exceptional = (
-        len(r["grundslag"]) == 2 and
-        r["grundslag"][0] == r["grundslag"][1]
-    )
+    counts = Counter(all_dice)
+    doubles = [k for k, v in counts.items() if v >= 2]
+    has_double = len(doubles) > 0
 
-    if success and exceptional:
-        icon = godfather_img
-        text = "EXCEPTIONELLT LYCKAT!"
-        sax_sound.play()
+    # -----------------------
+    # VISA TÄRNINGAR
+    # -----------------------
 
-    elif success:
-        icon = fedora_img
-        text = "Lyckat!"
+    def draw_die(parent, d):
+        frame = tk.Frame(parent, bg=BG)
+        frame.pack(side="left", padx=15)
 
-    elif not success and exceptional:
-        icon = noirge_img
-        text = "EXCEPTIONELLT MISSLYCKAT!"
-        crash_sound.play()
+        tk.Label(frame, image=dice_img, bg=BG).pack()
+
+        is_highlight = d in doubles
+        color, font = get_style(d, is_highlight)
+
+        tk.Label(frame, text=str(d), fg=color, bg=BG, font=font).pack()
+
+    for d in r["grundslag"]:
+        draw_die(dice_frame, d)
+
+    if r["extra"]:
+        tk.Label(dice_frame, text="+", bg=BG, font=("Segoe UI", 20)).pack(side="left")
+
+        for d in r["extra"]:
+            draw_die(dice_frame, d)
+
+    # -----------------------
+    # RESULTAT
+    # -----------------------
+
+    if has_double:
+        double_value = doubles[0]
+
+        if total >= 20:
+            img = godfather_img
+            text = f"EXCEPTIONELLT LYCKAT!"
+            sub = f"Dubbel {double_value}"
+            play_sound(SOUND_SUCCESS)
+        else:
+            img = noirge_img
+            text = f"EXCEPTIONELLT MISSLYCKAT!"
+            sub = f"Dubbel {double_value}"
+            play_sound(SOUND_FAIL)
 
     else:
-        icon = wrong_img
-        text = "Misslyckat!"
+        sub = ""
+        if success:
+            img = fedora_img
+            text = "Lyckat!"
+        else:
+            img = wrong_img
+            text = "Misslyckat!"
 
-    result_label.config(text=f"Summa: {total}")
-    status_label.config(text=text, image=icon, compound="left")
+    tk.Label(result_frame, image=img, bg=BG).pack()
+    tk.Label(result_frame, text=text, bg=BG, font=("Segoe UI", 18)).pack()
 
-# --------------------
-# KNAPP
-# --------------------
+    if sub:
+        tk.Label(result_frame, text=sub, bg=BG, font=("Segoe UI", 14, "italic")).pack()
+
+    tk.Label(result_frame, text=f"Summa: {total}", bg=BG, font=("Segoe UI", 16)).pack()
+
 def run():
     global animation_running
 
     try:
         value = int(entry.get())
     except:
-        result_label.config(text="Fel värde")
         return
 
     animation_running = True
     animate_gif()
 
-    dice_sound.play()
+    play_sound(SOUND_DICE)
 
     root.after(500, lambda: show_result(value))
 
-# --------------------
-# UI
-# --------------------
-title_frame = tk.Frame(root, bg="#e6e6e6")
-title_frame.pack(pady=20)
+tk.Button(
+    tab_difficulty,
+    text="🎲 Slå",
+    command=run,
+    bg=BTN_BG,
+    fg=BTN_FG,
+    font=("Segoe UI", 16, "bold"),
+    padx=20,
+    pady=10
+).pack(pady=20)
 
-tk.Label(title_frame, image=fedora_img, bg="#e6e6e6").pack(side="left", padx=10)
+# =====================================================
+# 🎯 INITIATIV
+# =====================================================
 
-tk.Label(
-    title_frame,
-    text="NOIR DICE",
-    font=("Segoe UI", 24, "bold"),
-    bg="#e6e6e6"
-).pack(side="left")
+players = []
+initiative_results = []
+current_turn_index = 0
 
-input_frame = tk.Frame(root, bg="#e6e6e6")
-input_frame.pack(pady=10)
+player_frame = tk.Frame(tab_initiative, bg=BG)
+player_frame.pack(pady=10)
 
-tk.Label(input_frame, text="Värde:", bg="#e6e6e6", font=("Segoe UI", 16)).pack(side="left")
+entry_name = tk.Entry(tab_initiative, font=("Segoe UI", 14))
+entry_name.pack()
 
-entry = tk.Entry(input_frame, font=("Segoe UI", 16), width=6)
-entry.pack(side="left", padx=10)
+entry_value = tk.Entry(tab_initiative, font=("Segoe UI", 14))
+entry_value.pack()
 
-ttk.Button(root, text="Slå", command=run).pack(pady=15)
+def add_player():
+    name = entry_name.get()
+    try:
+        value = int(entry_value.get())
+    except:
+        return
 
-gif_label = tk.Label(root, bg="#e6e6e6")
-gif_label.pack()
+    players.append({"name": name, "value": value})
+    entry_name.delete(0, tk.END)
+    entry_value.delete(0, tk.END)
+    refresh_players()
 
-dice_frame = tk.Frame(root, bg="#e6e6e6")
-dice_frame.pack(pady=20)
+def remove_player(i):
+    players.pop(i)
+    refresh_players()
 
-result_frame = tk.Frame(root, bg="#dcdcdc", padx=20, pady=15)
-result_frame.pack(pady=20)
+def refresh_players():
+    clear_frame(player_frame)
 
-result_label = tk.Label(result_frame, text="Summa:", bg="#dcdcdc", font=("Segoe UI", 16))
-result_label.pack()
+    for i, p in enumerate(players):
+        row = tk.Frame(player_frame, bg=BG)
+        row.pack(fill="x")
 
-status_label = tk.Label(result_frame, text="", bg="#dcdcdc", font=("Segoe UI", 16, "bold"))
-status_label.pack(pady=10)
+        tk.Label(row, text=f"{p['name']} ({p['value']})", bg=BG).pack(side="left")
 
-# --------------------
+        tk.Button(row, text="X", command=lambda i=i: remove_player(i)).pack(side="right")
+
+def roll_initiative():
+    global initiative_results, current_turn_index
+
+    results = []
+
+    for p in players:
+        r, total, _ = difficulty(p["value"])
+        results.append((p["name"], total))
+
+    results.sort(key=lambda x: x[1], reverse=True)
+
+    initiative_results = results
+    current_turn_index = 0
+
+    show_initiative_results()
+    play_sound(SOUND_DICE)
+
+def show_initiative_results():
+    clear_frame(result_frame_initiative)
+
+    for i, (name, value) in enumerate(initiative_results):
+
+        if i == current_turn_index:
+            bg_color = "#d4c2ff"
+            font = ("Segoe UI", 16, "bold")
+        else:
+            bg_color = BG
+            font = ("Segoe UI", 16)
+
+        tk.Label(
+            result_frame_initiative,
+            text=f"{i+1}. {name} - {value}",
+            bg=bg_color,
+            font=font
+        ).pack(fill="x", padx=20, pady=2)
+
+def next_turn():
+    global current_turn_index
+
+    if not initiative_results:
+        return
+
+    current_turn_index = (current_turn_index + 1) % len(initiative_results)
+    show_initiative_results()
+
+btn_style = {
+    "bg": BTN_BG,
+    "fg": BTN_FG,
+    "font": ("Segoe UI", 16, "bold"),
+    "padx": 20,
+    "pady": 10
+}
+
+tk.Button(tab_initiative, text="+ Lägg till", command=add_player, **btn_style).pack(pady=10)
+tk.Button(tab_initiative, text="🎲 Slå initiativ", command=roll_initiative, **btn_style).pack(pady=10)
+tk.Button(tab_initiative, text="➡️ Nästa spelare", command=next_turn, **btn_style).pack(pady=10)
+
+result_frame_initiative = tk.Frame(tab_initiative, bg=BG)
+result_frame_initiative.pack(pady=10)
+
+# -----------------------
 # START
-# --------------------
+# -----------------------
+
 root.mainloop()
