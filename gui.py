@@ -1,354 +1,774 @@
-import os
 import tkinter as tk
 from tkinter import ttk
-from PIL import Image, ImageTk, ImageSequence
+import random
+from PIL import Image, ImageTk
 import pygame
-from collections import Counter
 
-from noir.mechanics import difficulty
+BG = "#1a1a1a"
+FG = "#bb00ff"
+ACCENT = "#b30000"
+GOLD = "#d4af37"
+PURPLE = "#bb00ff"
+RED = "#ff4444"
+GREEN = "#00cc66"
 
-# -----------------------
-# INIT
-# -----------------------
+# -------------------------
+# UI HELPERS
+# -------------------------
+def NLabel(parent, **kwargs):
+    if "fg" not in kwargs:
+        kwargs["fg"] = FG
+    if "bg" not in kwargs:
+        kwargs["bg"] = BG
+    return tk.Label(parent, **kwargs)
 
 pygame.mixer.init()
 
-BASE_DIR = os.path.dirname(__file__)
-ASSETS = os.path.join(BASE_DIR, "assets")
+root = tk.Tk()
+root.title("Noir Dice")
+root.geometry("900x700")
+root.tk.call('tk', 'scaling', 1.3)
 
-SOUND_DICE = os.path.join(ASSETS, "dice.wav")
-SOUND_SUCCESS = os.path.join(ASSETS, "sax.wav")
-SOUND_FAIL = os.path.join(ASSETS, "carcrash.wav")
+# -------------------------
+# ASSETS
+# -------------------------
+def load_img(path, size=(120, 120)):
+    img = Image.open(f"assets/{path}")
+    img = img.resize(size)
+    return ImageTk.PhotoImage(img)
 
-IMG_D10 = os.path.join(ASSETS, "d10.png")
-IMG_GIF = os.path.join(ASSETS, "spin.gif")
-IMG_FEDORA = os.path.join(ASSETS, "fedora.png")
-IMG_GODFATHER = os.path.join(ASSETS, "godfather.png")
-IMG_WRONG = os.path.join(ASSETS, "wrong.png")
-IMG_NOIRGE = os.path.join(ASSETS, "noirge.png")
+spin_frames = []
+spin = Image.open("assets/spin.gif")
 
-# -----------------------
-# STYLE
-# -----------------------
+try:
+    while True:
+        frame = spin.copy().resize((120, 120))
+        spin_frames.append(ImageTk.PhotoImage(frame))
+        spin.seek(len(spin_frames))
+except EOFError:
+    pass
 
-BG = "#e6e6e6"
-FG = "#111"
-BTN_BG = "#111"
-BTN_FG = "#7c3aed"
-HIGHLIGHT = "#a855f7"  # lila
+dice_img = load_img("d10.png")
+fedora_img = load_img("fedora.png", (80, 80))
+godfather_img = load_img("godfather.png", (100, 100))
+wrong_img = load_img("wrong.png", (100, 100))
+noirge_img = load_img("noirge.png", (100, 100))
 
-# -----------------------
-# LJUD
-# -----------------------
-
-def play_sound(path):
+# -------------------------
+# SOUND
+# -------------------------
+def play_sound(file):
     try:
-        pygame.mixer.Sound(path).play()
+        pygame.mixer.music.load(f"assets/{file}")
+        pygame.mixer.music.play()
     except:
         pass
 
-# -----------------------
-# ROOT
-# -----------------------
+def play_dice_sound():
+    play_sound("dice.wav")
 
-root = tk.Tk()
-root.title("Noir Dice")
-root.geometry("650x700")
-root.configure(bg=BG)
+# -------------------------
+# GAME LOGIC
+# -------------------------
+def roll_d10():
+    return random.randint(1, 10)
 
-root.tk.call('tk', 'scaling', 1.3)
+def difficulty(value):
+    rolls = [roll_d10(), roll_d10()]
+    extra = []
 
-# -----------------------
-# LOAD IMAGES
-# -----------------------
+    # ❗ kolla om det finns en etta
+    has_one = 1 in rolls
 
-def load_img(path, size):
-    return ImageTk.PhotoImage(Image.open(path).resize(size))
+    # ❗ bara slå extraslag om INGEN etta finns
+    if not has_one:
+        for r in rolls:
+            if r == 10:
+                extra.append(roll_d10())
 
-dice_img = load_img(IMG_D10, (100, 100))
-fedora_img = load_img(IMG_FEDORA, (60, 60))
-godfather_img = load_img(IMG_GODFATHER, (70, 70))
-wrong_img = load_img(IMG_WRONG, (70, 70))
-noirge_img = load_img(IMG_NOIRGE, (70, 70))
+    total = sum(rolls) + sum(extra) + value
 
-gif = Image.open(IMG_GIF)
-gif_frames = [
-    ImageTk.PhotoImage(frame.copy().resize((100, 100)))
-    for frame in ImageSequence.Iterator(gif)
-]
+    return {
+        "rolls": rolls,
+        "extra": extra,
+        "total": total,
+        "success": total >= 20   # ← din regel
+    }
 
-# -----------------------
+def is_exceptional(rolls, total):
+    if len(rolls) >= 2 and rolls[0] == rolls[1]:
+        if total >= 20:
+            return "success"
+        else:
+            return "fail"
+    return None
+
+# -------------------------
 # HELPERS
-# -----------------------
-
+# -------------------------
 def clear_frame(frame):
     for w in frame.winfo_children():
         w.destroy()
 
-def get_style(value, is_highlight=False):
-    if is_highlight:
-        return HIGHLIGHT, ("Segoe UI", 20, "bold")
-    if value == 10:
-        return "#16a34a", ("Segoe UI", 18, "bold")
-    if value == 1:
-        return "#dc2626", ("Segoe UI", 18, "bold")
-    return FG, ("Segoe UI", 16)
+def highlight_color(rolls):
+    if len(rolls) >= 2 and rolls[0] == rolls[1]:
+        return "#d4af37"  # guld
+    return None
 
-# -----------------------
-# TABS
-# -----------------------
-
-notebook = ttk.Notebook(root)
-notebook.pack(fill="both", expand=True)
-
-tab_difficulty = tk.Frame(notebook, bg=BG)
-tab_initiative = tk.Frame(notebook, bg=BG)
-
-notebook.add(tab_difficulty, text="Svårighet")
-notebook.add(tab_initiative, text="Initiativ")
-
-# =====================================================
-# 🎲 SVÅRIGHET
-# =====================================================
-
-title = tk.Label(
-    tab_difficulty,
-    text="NOIR DICE",
-    image=fedora_img,
-    compound="left",
-    font=("Segoe UI", 28, "bold"),
-    bg=BG
-)
-title.pack(pady=20)
-
-entry = tk.Entry(tab_difficulty, font=("Segoe UI", 18), justify="center")
-entry.pack(pady=10)
-
-gif_label = tk.Label(tab_difficulty, bg=BG)
-gif_label.pack()
-
-animation_running = False
-
-def animate_gif(i=0):
-    if not animation_running:
+def animate_dice(label, frame_index=0):
+    if not label.winfo_exists():
         return
-    gif_label.config(image=gif_frames[i])
-    root.after(50, animate_gif, (i+1) % len(gif_frames))
 
-dice_frame = tk.Frame(tab_difficulty, bg=BG)
-dice_frame.pack(pady=20)
+    frame = spin_frames[frame_index]
+    label.config(image=frame)
+    label.image = frame
 
-result_frame = tk.Frame(tab_difficulty, bg=BG)
-result_frame.pack(pady=10)
+    next_frame = (frame_index + 1) % len(spin_frames)
+    root.after(50, lambda: animate_dice(label, next_frame))
 
-def show_result(value):
-    global animation_running
+# -------------------------
+# SVÅRIGHET
+# -------------------------
+def build_sv_tab(tab):
+    frame = tk.Frame(tab, bg=BG)
+    frame.pack(expand=True, fill="both")
 
-    clear_frame(dice_frame)
-    clear_frame(result_frame)
+    NLabel(frame, image=fedora_img, bg=BG).pack(pady=10)
+    NLabel(frame, text="NOIR DICE", font=("Segoe UI", 26, "bold"), bg=BG).pack()
 
-    r, total, success = difficulty(value)
+    entry = tk.Entry(frame, font=("Segoe UI", 18), justify="center")
+    entry.pack(pady=20)
 
-    animation_running = False
-    gif_label.config(image="")
+    dice_frame = tk.Frame(frame, bg=BG)
+    dice_frame.pack()
 
-    all_dice = r["grundslag"] + r["extra"]
+    result_frame = tk.Frame(frame, bg=BG)
+    result_frame.pack(pady=20)
 
-    counts = Counter(all_dice)
-    doubles = [k for k, v in counts.items() if v >= 2]
-    has_double = len(doubles) > 0
+    def roll():
+        clear_frame(dice_frame)
+        clear_frame(result_frame)
 
-    # -----------------------
-    # VISA TÄRNINGAR
-    # -----------------------
+        labels = []
+        for _ in range(2):
+            lbl = NLabel(dice_frame, bg=BG)
+            lbl.pack(side="left", padx=15)
+            labels.append(lbl)
 
-    def draw_die(parent, d):
-        frame = tk.Frame(parent, bg=BG)
-        frame.pack(side="left", padx=15)
+        for lbl in labels:
+            animate_dice(lbl)
 
-        tk.Label(frame, image=dice_img, bg=BG).pack()
+        play_dice_sound()
 
-        is_highlight = d in doubles
-        color, font = get_style(d, is_highlight)
+        root.after(800, show_result)
 
-        tk.Label(frame, text=str(d), fg=color, bg=BG, font=font).pack()
+    def show_result():
+        clear_frame(dice_frame)
+        clear_frame(result_frame)
 
-    for d in r["grundslag"]:
-        draw_die(dice_frame, d)
-
-    if r["extra"]:
-        tk.Label(dice_frame, text="+", bg=BG, font=("Segoe UI", 20)).pack(side="left")
-
-        for d in r["extra"]:
-            draw_die(dice_frame, d)
-
-    # -----------------------
-    # RESULTAT
-    # -----------------------
-
-    if has_double:
-        double_value = doubles[0]
-
-        if total >= 20:
-            img = godfather_img
-            text = f"EXCEPTIONELLT LYCKAT!"
-            sub = f"Dubbel {double_value}"
-            play_sound(SOUND_SUCCESS)
-        else:
-            img = noirge_img
-            text = f"EXCEPTIONELLT MISSLYCKAT!"
-            sub = f"Dubbel {double_value}"
-            play_sound(SOUND_FAIL)
-
-    else:
-        sub = ""
-        if success:
-            img = fedora_img
-            text = "Lyckat!"
-        else:
-            img = wrong_img
-            text = "Misslyckat!"
-
-    tk.Label(result_frame, image=img, bg=BG).pack()
-    tk.Label(result_frame, text=text, bg=BG, font=("Segoe UI", 18)).pack()
-
-    if sub:
-        tk.Label(result_frame, text=sub, bg=BG, font=("Segoe UI", 14, "italic")).pack()
-
-    tk.Label(result_frame, text=f"Summa: {total}", bg=BG, font=("Segoe UI", 16)).pack()
-
-def run():
-    global animation_running
-
-    try:
         value = int(entry.get())
-    except:
-        return
+        r = difficulty(value)
 
-    animation_running = True
-    animate_gif()
+        rolls = r["rolls"]
+        extra = r["extra"]
+        total = r["total"]
 
-    play_sound(SOUND_DICE)
+        # visa tärningar
+        highlight = highlight_color(rolls)
 
-    root.after(500, lambda: show_result(value))
+        has_one = 1 in rolls
 
-tk.Button(
-    tab_difficulty,
-    text="🎲 Slå",
-    command=run,
-    bg=BTN_BG,
-    fg=BTN_FG,
-    font=("Segoe UI", 16, "bold"),
-    padx=20,
-    pady=10
-).pack(pady=20)
+        for d in rolls:
 
-# =====================================================
-# 🎯 INITIATIV
-# =====================================================
+            # 🎨 färglogik
+            if d == 1:
+                color = "red"
+            elif d == 10 and not has_one:
+                color = "green"
+            else:
+                color = "#bb00ff"
 
-players = []
-initiative_results = []
-current_turn_index = 0
+            f = tk.Frame(dice_frame, bg="#1a1a1a", bd=2, relief="solid")
+            f.pack(side="left", padx=15)
 
-player_frame = tk.Frame(tab_initiative, bg=BG)
-player_frame.pack(pady=10)
+            NLabel(f, image=dice_img, bg="#1a1a1a").pack()
 
-entry_name = tk.Entry(tab_initiative, font=("Segoe UI", 14))
-entry_name.pack()
+            NLabel(
+                f,
+                text=str(d),
+                fg=color,
+                bg="#1a1a1a",
+                font=("Segoe UI", 14, "bold")
+            ).pack()
 
-entry_value = tk.Entry(tab_initiative, font=("Segoe UI", 14))
-entry_value.pack()
+            if d == 10 and has_one:
+                NLabel(
+                    f,
+                    text="BLOCKED",
+                    fg="red",
+                    bg="#1a1a1a",
+                    font=("Segoe UI", 8, "bold")
+                ).pack()
+        
+        if extra:
+            NLabel(dice_frame, text="+", font=("Segoe UI", 18), bg=BG).pack(side="left")
 
-def add_player():
-    name = entry_name.get()
-    try:
-        value = int(entry_value.get())
-    except:
-        return
+            for d in extra:
+                f = tk.Frame(dice_frame, bg="#1a1a1a", bd=2, relief="solid")
+                f.pack(side="left", padx=10)
 
-    players.append({"name": name, "value": value})
-    entry_name.delete(0, tk.END)
-    entry_value.delete(0, tk.END)
-    refresh_players()
+                NLabel(f, image=dice_img, bg="#1a1a1a").pack()
+                NLabel(
+                    f,
+                    text=str(d),
+                    fg="green",
+                    bg="#1a1a1a",
+                    font=("Segoe UI", 14, "bold")
+                ).pack()
 
-def remove_player(i):
-    players.pop(i)
-    refresh_players()
 
-def refresh_players():
-    clear_frame(player_frame)
+        # breakdown
+        rolls_str = " + ".join(str(d) for d in rolls)
+        extra_str = " + ".join(str(d) for d in extra) if extra else "0"
 
-    for i, p in enumerate(players):
-        row = tk.Frame(player_frame, bg=BG)
-        row.pack(fill="x")
+        NLabel(
+            result_frame,
+            text=f"Tärningar: {rolls_str}  |  Bonus: {extra_str}  |  Värde: {value}\nTotalt: {rolls_str} + {extra_str} + {value} = {total}",
+            font=("Segoe UI", 12),
+            bg=BG,
+            fg=FG,
+            justify="center"
+        ).pack(pady=10)
 
-        tk.Label(row, text=f"{p['name']} ({p['value']})", bg=BG).pack(side="left")
+        ex = is_exceptional(rolls, total)
 
-        tk.Button(row, text="X", command=lambda i=i: remove_player(i)).pack(side="right")
+        if rolls[0] == rolls[1]:
+            NLabel(
+                result_frame,
+                text=f"Dubbel {rolls[0]}",
+                fg=GOLD,
+                font=("Segoe UI", 14, "bold"),
+                bg=BG
+            ).pack()
 
-def roll_initiative():
-    global initiative_results, current_turn_index
+        if 1 in rolls:
+            NLabel(
+                result_frame,
+                text="⚠️ 1:a blockerar extraslag",
+                fg="red",
+                font=("Segoe UI", 12, "italic")
+            ).pack()
 
-    results = []
+        if ex == "success":
+            NLabel(result_frame, image=godfather_img, bg=BG).pack()
+            NLabel(result_frame, text="EXCEPTIONELLT LYCKAT!", fg="green", font=("Segoe UI", 18)).pack()
+            NLabel(result_frame, text=f"Dubbel {rolls[0]}").pack()
+            play_sound("sax.wav")
 
-    for p in players:
-        r, total, _ = difficulty(p["value"])
-        results.append((p["name"], total))
+        elif ex == "fail":
+            NLabel(result_frame, image=noirge_img, bg=BG).pack()
+            NLabel(result_frame, text="EXCEPTIONELLT MISSLYCKAT!", fg="red", font=("Segoe UI", 18)).pack()
+            NLabel(result_frame, text=f"Dubbel {rolls[0]}").pack()
+            play_sound("carcrash.wav")
 
-    results.sort(key=lambda x: x[1], reverse=True)
-
-    initiative_results = results
-    current_turn_index = 0
-
-    show_initiative_results()
-    play_sound(SOUND_DICE)
-
-def show_initiative_results():
-    clear_frame(result_frame_initiative)
-
-    for i, (name, value) in enumerate(initiative_results):
-
-        if i == current_turn_index:
-            bg_color = "#d4c2ff"
-            font = ("Segoe UI", 16, "bold")
         else:
-            bg_color = BG
-            font = ("Segoe UI", 16)
+            if r["success"]:
+                NLabel(result_frame, image=fedora_img, bg=BG).pack()
+                NLabel(result_frame, 
+                         text="Lyckat!", 
+                         fg="green",
+                         bg=BG).pack()
+            else:
+                NLabel(result_frame, image=wrong_img, bg=BG).pack()
+                NLabel(result_frame, 
+                         text="Misslyckat!", 
+                         fg="red",
+                         bg=BG).pack()
 
-        tk.Label(
-            result_frame_initiative,
-            text=f"{i+1}. {name} - {value}",
-            bg=bg_color,
-            font=font
-        ).pack(fill="x", padx=20, pady=2)
+    tk.Button(
+        frame,
+        text="🎲 Slå",
+        font=("Segoe UI", 16),
+        bg="#000000",
+        fg="#bb00ff",
+        activebackground="#222222",
+        padx=20,
+        pady=10,
+        command=roll
+    ).pack(pady=20)
 
-def next_turn():
-    global current_turn_index
+# -------------------------
+# INITIATIV
+# -------------------------
+def build_init_tab(tab):
+    frame = tk.Frame(tab, bg=BG)
+    frame.pack(expand=True, fill="both")
 
-    if not initiative_results:
-        return
+    # ========================
+    # STATE
+    # ========================
+    players = []
+    current_turn = 0
+    turn_rows = []
+    active_vars = []
 
-    current_turn_index = (current_turn_index + 1) % len(initiative_results)
-    show_initiative_results()
+    # ========================
+    # HEADER
+    # ========================
+    NLabel(frame, image=fedora_img, bg=BG).pack(pady=10)
+    NLabel(frame, text="INITIATIV", font=("Segoe UI", 26, "bold"), bg=BG).pack(pady=(0, 10))
 
-btn_style = {
-    "bg": BTN_BG,
-    "fg": BTN_FG,
-    "font": ("Segoe UI", 16, "bold"),
-    "padx": 20,
-    "pady": 10
-}
+    # ========================
+    # INPUT
+    # ========================
+    input_frame = tk.Frame(frame, bg=BG)
+    input_frame.pack(pady=10)
 
-tk.Button(tab_initiative, text="+ Lägg till", command=add_player, **btn_style).pack(pady=10)
-tk.Button(tab_initiative, text="🎲 Slå initiativ", command=roll_initiative, **btn_style).pack(pady=10)
-tk.Button(tab_initiative, text="➡️ Nästa spelare", command=next_turn, **btn_style).pack(pady=10)
+    name_entry = tk.Entry(input_frame, font=("Segoe UI", 14), width=15)
+    name_entry.pack(side="left", padx=5)
 
-result_frame_initiative = tk.Frame(tab_initiative, bg=BG)
-result_frame_initiative.pack(pady=10)
+    value_entry = tk.Entry(input_frame, font=("Segoe UI", 14), width=5)
+    value_entry.pack(side="left", padx=5)
 
-# -----------------------
-# START
-# -----------------------
+    def add_player():
+        name = name_entry.get()
+        try:
+            value = int(value_entry.get())
+        except:
+            return
+
+        if name:
+            players.append({"name": name, "value": value})
+            name_entry.delete(0, tk.END)
+            value_entry.delete(0, tk.END)
+            refresh_players()
+
+    tk.Button(
+        frame,
+        text="+ Lägg till",
+        command=add_player,
+        bg="#000",
+        fg=FG,
+        font=("Segoe UI", 12),
+        relief="solid"
+    ).pack(pady=10)
+
+    # ========================
+    # PLAYER LIST
+    # ========================
+    player_frame = tk.Frame(frame, bg=BG)
+    player_frame.pack()
+
+    def refresh_players():
+        for w in player_frame.winfo_children():
+            w.destroy()
+
+        for i, p in enumerate(players):
+            row = tk.Frame(player_frame, bg=BG)
+            row.pack()
+
+            NLabel(row, text=f"{p['name']} ({p['value']})").pack(side="left")
+
+            tk.Button(
+                row,
+                text="X",
+                bg="#000",
+                fg=FG,
+                relief="solid",
+                command=lambda i=i: remove_player(i)
+            ).pack(side="left", padx=5)
+
+    def remove_player(i):
+        players.pop(i)
+        refresh_players()
+
+    # ========================
+    # RESULT FRAME
+    # ========================
+    result_frame = tk.Frame(frame, bg=BG)
+    result_frame.pack(pady=20)
+
+    # ========================
+    # TURN SYSTEM
+    # ========================
+    def highlight_turn():
+        for i, row in enumerate(turn_rows):
+            if not active_vars[i].get():
+                row.config(bg="#111111")
+            elif i == current_turn:
+                row.config(bg="#3a0a4a")
+            else:
+                row.config(bg="#1a1a1a")
+
+    def next_turn():
+        nonlocal current_turn
+
+        active_indices = [i for i, v in enumerate(active_vars) if v.get()]
+        if not active_indices:
+            return
+
+        if current_turn not in active_indices:
+            current_turn = active_indices[0]
+        else:
+            pos = active_indices.index(current_turn)
+            current_turn = active_indices[(pos + 1) % len(active_indices)]
+
+        highlight_turn()
+
+    # ========================
+    # INIT ROLL
+    # ========================
+    def roll_init():
+        nonlocal current_turn
+
+        for w in result_frame.winfo_children():
+            w.destroy()
+
+        if not players:
+            return
+
+        play_dice_sound()
+
+        results = []
+        active_vars.clear()
+        turn_rows.clear()
+        current_turn = 0
+
+        for p in players:
+            r = difficulty(p["value"])
+            ex = is_exceptional(r["rolls"], r["total"])
+
+            if ex == "success":
+                init_value = r["total"] * 2
+            elif ex == "fail":
+                init_value = 1
+            elif r["success"]:
+                init_value = r["total"]
+            else:
+                init_value = max(r["rolls"])
+
+            results.append({
+                "name": p["name"],
+                "total": init_value,
+                "raw_total": r["total"],
+                "rolls": r["rolls"],
+                "extra": r["extra"],
+                "value": p["value"]
+            })
+
+        results.sort(key=lambda x: x["total"], reverse=True)
+
+        # ========================
+        # VISA RESULTAT
+        # ========================
+        for i, r in enumerate(results, start=1):
+            row = tk.Frame(result_frame, bg="#1a1a1a", bd=2, relief="solid")
+            row.pack(fill="x", pady=5)
+
+            turn_rows.append(row)
+
+            var = tk.BooleanVar(value=True)
+            active_vars.append(var)
+
+            tk.Checkbutton(
+                row,
+                variable=var,
+                bg="#1a1a1a",
+                selectcolor="#000",
+                activebackground="#1a1a1a",
+                highlightthickness=0
+            ).pack(side="left", padx=5)
+
+            name_text = f"{i}. {r['name']} ({r['total']})"
+
+            NLabel(
+                row,
+                text=name_text,
+                font=("Segoe UI", 14, "bold"),
+                bg="#1a1a1a"
+            ).pack(side="left", padx=10)
+
+            rolls_str = " + ".join(str(d) for d in r["rolls"])
+            extra_str = " + ".join(str(d) for d in r["extra"]) if r["extra"] else "0"
+
+            calc = f"{rolls_str} + {extra_str} + {r['value']} → {r['total']}"
+
+            NLabel(
+                row,
+                text=calc,
+                font=("Segoe UI", 12),
+                bg="#1a1a1a"
+            ).pack(side="right", padx=10)
+
+        highlight_turn()
+
+    # ========================
+    # BUTTONS
+    # ========================
+    tk.Button(
+        frame,
+        text="🎲 Slå initiativ",
+        command=roll_init,
+        font=("Segoe UI", 16),
+        bg="#000",
+        fg=FG,
+        relief="solid"
+    ).pack(pady=20)
+
+    tk.Button(
+        frame,
+        text="▶ Nästa tur",
+        command=next_turn,
+        font=("Segoe UI", 14),
+        bg="#000",
+        fg=FG,
+        relief="solid"
+    ).pack(pady=10)
+
+# -------------------------
+# MOTSTÅND
+# -------------------------
+def build_resist_tab(tab):
+    frame = tk.Frame(tab, bg=BG)
+    frame.pack(expand=True, fill="both")
+
+    participants = []
+
+    # ========================
+    # HEADER
+    # ========================
+    NLabel(frame, image=fedora_img, bg=BG).pack(pady=10)
+    NLabel(frame, text="MOTSTÅND", font=("Segoe UI", 26, "bold"), bg=BG).pack(pady=(0, 10))
+
+    # ========================
+    # INPUT
+    # ========================
+    input_frame = tk.Frame(frame, bg=BG)
+    input_frame.pack(pady=10)
+
+    name_entry = tk.Entry(input_frame, font=("Segoe UI", 14), width=15)
+    name_entry.pack(side="left", padx=5)
+
+    value_entry = tk.Entry(input_frame, font=("Segoe UI", 14), width=5)
+    value_entry.pack(side="left", padx=5)
+
+    def add_participant():
+        name = name_entry.get()
+        try:
+            value = int(value_entry.get())
+        except:
+            return
+
+        if name:
+            participants.append({"name": name, "value": value})
+            name_entry.delete(0, tk.END)
+            value_entry.delete(0, tk.END)
+            refresh_list()
+
+    tk.Button(
+        frame,
+        text="+ Lägg till",
+        command=add_participant,
+        bg="#000",
+        fg=FG,
+        font=("Segoe UI", 12),
+        relief="solid"
+    ).pack(pady=10)
+
+    # ========================
+    # LISTA
+    # ========================
+    list_frame = tk.Frame(frame, bg=BG)
+    list_frame.pack()
+
+    def refresh_list():
+        for w in list_frame.winfo_children():
+            w.destroy()
+
+        for i, p in enumerate(participants):
+            row = tk.Frame(list_frame, bg=BG)
+            row.pack()
+
+            NLabel(row, text=f"{p['name']} ({p['value']})").pack(side="left")
+
+            tk.Button(
+                row,
+                text="X",
+                bg="#000",
+                fg=FG,
+                relief="solid",
+                command=lambda i=i: remove_participant(i)
+            ).pack(side="left", padx=5)
+
+    def remove_participant(i):
+        participants.pop(i)
+        refresh_list()
+
+    # ========================
+    # RESULTAT
+    # ========================
+    result_frame = tk.Frame(frame, bg=BG)
+    result_frame.pack(pady=20)
+
+    # ========================
+    # LOGIK
+    # ========================
+    def roll_resist():
+        for w in result_frame.winfo_children():
+            w.destroy()
+
+        if len(participants) < 2:
+            return
+
+        play_dice_sound()
+
+        results = []
+
+        for p in participants:
+            rolls = [roll_d10(), roll_d10()]
+            total = sum(rolls) + p["value"]
+
+            results.append({
+                "name": p["name"],
+                "value": p["value"],
+                "rolls": rolls,
+                "total": total,
+                "exceptional": rolls[0] == rolls[1]
+            })
+
+        # ========================
+        # SORTERING + TIE BREAK
+        # ========================
+        def sort_key(r):
+            return (
+                r["total"],
+                r["value"],
+                max(r["rolls"])
+            )
+
+        results.sort(key=sort_key, reverse=True)
+
+        winner = results[0]
+
+        # ========================
+        # SUDDEN DEATH
+        # ========================
+        if len(results) >= 2:
+            a = results[0]
+            b = results[1]
+
+            if (
+                a["total"] == b["total"]
+                and a["value"] == b["value"]
+                and max(a["rolls"]) == max(b["rolls"])
+            ):
+                while True:
+                    a_roll = roll_d10()
+                    b_roll = roll_d10()
+
+                    if a_roll != b_roll:
+                        winner = a if a_roll > b_roll else b
+                        break
+
+                NLabel(
+                    result_frame,
+                    text=f"⚔️ Sudden death: {a_roll} vs {b_roll} → {winner['name']} vinner!",
+                    fg="gold",
+                    font=("Segoe UI", 14, "bold"),
+                    bg=BG
+                ).pack(pady=10)
+
+        # ========================
+        # VISA RESULTAT
+        # ========================
+        for i, r in enumerate(results, start=1):
+
+            # 🎨 basfärg
+            bg_color = "#1a1a1a"
+
+            # 🟣 vinnare
+            if r == winner:
+                bg_color = "#3a0a4a"
+
+            # 🟢 exceptionellt lyckat
+            if r["exceptional"] and r == winner:
+                bg_color = "#003300"
+
+            # 🔴 exceptionellt misslyckat
+            if r["exceptional"] and r != winner:
+                bg_color = "#330000"
+
+            row = tk.Frame(result_frame, bg=bg_color, bd=2, relief="solid")
+            row.pack(fill="x", pady=5)
+
+            name_text = f"{i}. {r['name']} ({r['total']})"
+
+            NLabel(
+                row,
+                text=name_text,
+                font=("Segoe UI", 14, "bold"),
+                bg=bg_color
+            ).pack(side="left", padx=10)
+
+            # ✨ exceptionell text
+            if r["exceptional"]:
+                if r == winner:
+                    NLabel(
+                        row,
+                        text="✨ Exceptionellt lyckat!",
+                        fg="green",
+                        font=("Segoe UI", 12, "bold"),
+                        bg=bg_color
+                    ).pack(side="left", padx=10)
+                else:
+                    NLabel(
+                        row,
+                        text="💀 Exceptionellt misslyckat!",
+                        fg="red",
+                        font=("Segoe UI", 12, "bold"),
+                        bg=bg_color
+                    ).pack(side="left", padx=10)
+
+            rolls_str = " + ".join(str(d) for d in r["rolls"])
+            calc = f"{rolls_str} + {r['value']} → {r['total']}"
+
+            NLabel(
+                row,
+                text=calc,
+                font=("Segoe UI", 12),
+                bg=bg_color
+            ).pack(side="right", padx=10)
+
+    # ========================
+    # BUTTON
+    # ========================
+    tk.Button(
+        frame,
+        text="⚔️ Slå motstånd",
+        command=roll_resist,
+        font=("Segoe UI", 16),
+        bg="#000",
+        fg=FG,
+        relief="solid"
+    ).pack(pady=20)
+
+# -------------------------
+# TABS
+# -------------------------
+tab_control = ttk.Notebook(root)
+
+tab_sv = tk.Frame(tab_control)
+tab_init = tk.Frame(tab_control)
+tab_resist = tk.Frame(tab_control)
+
+tab_control.add(tab_sv, text="Svårighet")
+tab_control.add(tab_init, text="Initiativ")
+tab_control.add(tab_resist, text="Motstånd")
+
+tab_control.pack(expand=1, fill="both")
+
+build_sv_tab(tab_sv)
+build_init_tab(tab_init)
+build_resist_tab(tab_resist)
 
 root.mainloop()
