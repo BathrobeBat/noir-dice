@@ -92,9 +92,10 @@ Framöver kommer fokus ligga på:
 
 ## ▶️ Starta programmet
 
-Kör:
-
-py gui.py
+1. Installera beroenden:
+`pip install -r requirements.txt`
+2. Starta programmet:
+`py gui.py`
 
 ------------------------------------------------------------------------
 
