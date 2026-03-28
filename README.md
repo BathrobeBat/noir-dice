@@ -1,106 +1,109 @@
 # 🎲 Noir Dice
 
-Ett visuellt tärningsverktyg i Python för det svenska rollspelet **Noir**.
+Ett stilrent tärningsverktyg för rollspel, byggt i Python med Tkinter.
 
-Programmet automatiserar tärningsslag enligt Noirs regler och visar resultatet tydligt med grafik, animationer och ljud.
-
----
+------------------------------------------------------------------------
 
 ## ✨ Funktioner
 
-* 🎲 Slår T10 enligt Noirs regelsystem
-* ➕ Hanterar maxning (10:or ger extra slag)
-* ⛔ Hanterar spärr (1:or stoppar maxning)
-* 🎞️ Animerat tärningskast (GIF)
-* 🔊 Ljudfeedback (via `pygame`)
-* 🎩 Visuella resultat (fedora, godfather, etc.)
-* 🎨 Highlight av viktiga slag (1 & 10, samt dubblar)
-* 💥 Exceptionella resultat:
+### 🎯 Svårighetsslag
 
-  * Dubbel + ≥ 20 → **Exceptionellt lyckat**
-  * Dubbel + < 20 → **Exceptionellt misslyckat**
-* 🧠 Visar varför resultatet blev exceptionellt (t.ex. *"Dubbel 7"*)
+-   Slå 2T10 med stöd för exploderande tior
+-   Ettor blockerar extraslag
+-   Tydlig uträkning av resultat
+-   Exceptionellt lyckat och misslyckat stöd
 
----
+### ⚡ Initiativsystem
 
-## 🎯 Initiativsystem
+-   Lägg till flera deltagare med värden
+-   Automatisk beräkning enligt regler
+-   Sorterad turordning
+-   Markering av aktiv spelare
+-   Möjlighet att hoppa över deltagare (checkbox)
+-   Loopande turordning
 
-* ➕ Lägg till spelare med namn + värde
-* 🎲 Slå initiativ för alla spelare
-* 📊 Automatisk sortering (högst först)
-* ▶️ Växla turordning med “Nästa spelare”
-* 🎯 Highlight av aktuell spelare
+### ⚔️ Motståndsslag
 
----
+-   Flera deltagare kan delta
+-   2T10 + attribut/skicklighetsvärde
+-   Automatisk vinnare
+-   Utslagsregler:
+    -   Högst total
+    -   Högst värde
+    -   Högsta enskilda tärning
+    -   Sudden death (1T10)
+-   Exceptionella slag (lyckade/misslyckade)
+-   Visuell markering av resultat
 
-## 📦 Krav
+------------------------------------------------------------------------
 
-* Python 3.10+
-* Pillow
-* pygame-ce
+## 🗂️ Projektstruktur
 
-Installera beroenden:
+    noir-dice/
+    |
+    |   .gitignore
+    |   gui.py
+    |   main.py
+    |   README.md
+    |   requirements.txt
+    |
+    +---assets
+    |       carcrash.wav
+    |       d10.png
+    |       dice.wav
+    |       fedora.png
+    |       godfather.png
+    |       noirge.png
+    |       sax.wav
+    |       spin.gif
+    |       wrong.png
+    |
+    \---noir
+        |   dice.py
+        |   mechanics.py
+        |   __init__.py
 
-```bash
-pip install -r requirements.txt
-```
+------------------------------------------------------------------------
 
----
+## 🎨 Gränssnitt
+
+-   Noir-inspirerat mörkt tema
+-   Enhetlig design genom hela programmet
+-   Tydlig visuell feedback
+
+------------------------------------------------------------------------
+
+## 🚧 Status
+
+✅ Kärnfunktioner färdiga\
+🧪 Redo för speltest
+
+------------------------------------------------------------------------
+
+## 🔮 Kommande uppdateringar
+
+Framöver kommer fokus ligga på:
+
+-   🎨 Kosmetiska förbättringar\
+-   📦 Göra programmet körbart utan CLI (t.ex. .exe)\
+-   📱 Eventuell mobilversion
+
+------------------------------------------------------------------------
 
 ## ▶️ Starta programmet
 
-```bash
-python gui.py
-```
+Kör:
 
----
+py gui.py
 
-## 📁 Projektstruktur
+------------------------------------------------------------------------
 
-```
-noir-dice/
-│
-├── gui.py
-├── noir/
-│   └── mechanics.py
-├── assets/
-│   ├── d10.png
-│   ├── spin.gif
-│   ├── fedora.png
-│   ├── godfather.png
-│   ├── wrong.png
-│   ├── noirge.png
-│   ├── dice.wav
-│   ├── sax.wav
-│   └── carcrash.wav
-└── README.md
-```
+## 💡 Syfte
 
----
+Verktyget är designat för att göra spel snabbare, tydligare och mer
+stämningsfullt vid spelbordet.
 
-## 🎨 Designfilosofi
-
-Fokus på:
-
-* Enkelhet vid spelbordet
-* Tydlig visuell feedback
-* Noir-känsla (mörk, stilren, tematisk)
-
----
-
-## 🚀 Framtida idéer
-
-* 📱 Mobilanpassning
-* 🎭 Fler visuella teman
-* 🎲 Fler Noir-mekanik (t.ex. skador, resurser)
-
----
-
-## 🧠 Om projektet
-
-Detta är ett hobbyprojekt byggt i Python för att kombinera programmering med rollspel och kreativ UI-design.
-
----
+------------------------------------------------------------------------
 
 ## 📜 Licens
 
@@ -108,4 +111,5 @@ Detta är ett hobbyprojekt byggt i Python för att kombinera programmering med r
 
 Fri att använda och bygga vidare på.
 
-Detta projekt är ett hobbyprojekt och inte officiellt kopplat till Noir eller Helmgast.
+Detta projekt är ett hobbyprojekt och inte officiellt kopplat till Noir
+eller Helmgast.
